@@ -322,22 +322,6 @@ export function RouteMap({ aEndLocation, bEndLocation }: RouteMapProps) {
     });
   };
 
-  const getDefaultCityCoords = (city: string, region: string) => {
-    // Default coordinates for common cities - in a real app, you'd use geocoding
-    const cityCoords: Record<string, { lat: number; lng: number }> = {
-      'new york,ny': { lat: 40.7128, lng: -74.0060 },
-      'los angeles,ca': { lat: 34.0522, lng: -118.2437 },
-      'chicago,il': { lat: 41.8781, lng: -87.6298 },
-      'dallas,tx': { lat: 32.7767, lng: -96.7970 },
-      'atlanta,ga': { lat: 33.7490, lng: -84.3880 },
-      'seattle,wa': { lat: 47.6062, lng: -122.3321 },
-      'miami,fl': { lat: 25.7617, lng: -80.1918 },
-      'denver,co': { lat: 39.7392, lng: -104.9903 },
-    };
-
-    const key = `${city.toLowerCase()},${region.toLowerCase()}`;
-    return cityCoords[key] || { lat: 39.8283, lng: -98.5795 }; // Default to center of US
-  };
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200/50 shadow-sm overflow-hidden">

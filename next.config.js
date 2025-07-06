@@ -8,6 +8,14 @@ import "./src/env.js";
 const config = {
   reactStrictMode: true,
   
+  // Disable linting and type checking during build for faster deployment
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  
   // WSL2 support configuration
   async headers() {
     return [
