@@ -2,10 +2,16 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 export const adminRouter = createTRPCRouter({
   initializeDatabase: publicProcedure
     .mutation(async ({ ctx }) => {
+      let tablesExist = false;
+      
       try {
         // Check if admin user already exists
         const existingAdmin = await ctx.db.user.findUnique({
@@ -15,9 +21,22 @@ export const adminRouter = createTRPCRouter({
         if (existingAdmin) {
           return { message: "Database already initialized" };
         }
+        tablesExist = true;
       } catch (error) {
-        // If the table doesn't exist, we'll continue to create the users
-        console.log("Database tables may not exist yet, continuing with initialization...");
+        console.log("Database tables may not exist yet, creating schema...");
+        
+        try {
+          // Run prisma db push to create tables
+          await execAsync("npx prisma db push --accept-data-loss");
+          console.log("Database schema created successfully");
+          tablesExist = true;
+        } catch (pushError) {
+          console.error("Failed to create database schema:", pushError);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create database schema. Please check your DATABASE_URL configuration.",
+          });
+        }
       }
 
       try {
