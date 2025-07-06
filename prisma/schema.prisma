@@ -1,0 +1,198 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "sqlite"
+    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
+    // Further reading:
+    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
+    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
+    url      = env("DATABASE_URL")
+}
+
+model Post {
+    id        Int      @id @default(autoincrement())
+    name      String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    createdBy   User   @relation(fields: [createdById], references: [id])
+    createdById String
+
+    @@index([name])
+}
+
+// Necessary for Next auth
+model Account {
+    id                       String  @id @default(cuid())
+    userId                   String
+    type                     String
+    provider                 String
+    providerAccountId        String
+    refresh_token            String? // @db.Text
+    access_token             String? // @db.Text
+    expires_at               Int?
+    token_type               String?
+    scope                    String?
+    id_token                 String? // @db.Text
+    session_state            String?
+    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    refresh_token_expires_in Int?
+
+    @@unique([provider, providerAccountId])
+}
+
+model Session {
+    id           String   @id @default(cuid())
+    sessionToken String   @unique
+    userId       String
+    expires      DateTime
+    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+    id            String    @id @default(cuid())
+    name          String?
+    email         String?   @unique
+    emailVerified DateTime?
+    image         String?
+    role          UserRole  @default(USER)
+    companyName   String?
+    companyDetails String?
+    billingAddress String?
+    accounts      Account[]
+    sessions      Session[]
+    posts         Post[]
+    orders        Order[]
+}
+
+enum UserRole {
+    USER
+    ADMIN
+}
+
+model Location {
+    id        String   @id @default(cuid())
+    name      String
+    type      EndpointType
+    region    String
+    city      String
+    latitude  Float
+    longitude Float
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    
+    routesA   Route[]  @relation("RouteAEnd")
+    routesB   Route[]  @relation("RouteBEnd")
+    
+    @@index([region, city])
+    @@index([type])
+}
+
+enum EndpointType {
+    POP
+    DC
+    CLS
+}
+
+model Route {
+    id          String   @id @default(cuid())
+    name        String
+    aEndId      String
+    bEndId      String
+    distance    Float?
+    isActive    Boolean  @default(true)
+    isVisible   Boolean  @default(true)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+    
+    aEnd        Location @relation("RouteAEnd", fields: [aEndId], references: [id])
+    bEnd        Location @relation("RouteBEnd", fields: [bEndId], references: [id])
+    capacities  RouteCapacity[]
+    orderItems  OrderItem[]
+    
+    @@unique([aEndId, bEndId])
+    @@index([isActive, isVisible])
+}
+
+model RouteCapacity {
+    id           String   @id @default(cuid())
+    routeId      String
+    capacity     Capacity
+    pricePerUnit Float
+    availableUnits Int
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+    
+    route        Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+    orderItems   OrderItem[]
+    
+    @@unique([routeId, capacity])
+}
+
+enum Capacity {
+    TEN_G
+    HUNDRED_G
+    FOUR_HUNDRED_G
+}
+
+model Order {
+    id              String      @id @default(cuid())
+    userId          String
+    status          OrderStatus @default(PENDING)
+    totalAmount     Float
+    currency        String      @default("USD")
+    paymentStatus   PaymentStatus @default(PENDING)
+    paymentIntentId String?
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @updatedAt
+    
+    user            User        @relation(fields: [userId], references: [id])
+    items           OrderItem[]
+    
+    @@index([userId])
+    @@index([status])
+}
+
+enum OrderStatus {
+    PENDING
+    CONFIRMED
+    PROCESSING
+    ACTIVE
+    CANCELLED
+}
+
+enum PaymentStatus {
+    PENDING
+    COMPLETED
+    FAILED
+    REFUNDED
+}
+
+model OrderItem {
+    id               String   @id @default(cuid())
+    orderId          String
+    routeId          String
+    routeCapacityId  String
+    quantity         Int
+    unitPrice        Float
+    totalPrice       Float
+    createdAt        DateTime @default(now())
+    
+    order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+    route            Route    @relation(fields: [routeId], references: [id])
+    routeCapacity    RouteCapacity @relation(fields: [routeCapacityId], references: [id])
+}
+
+model VerificationToken {
+    identifier String
+    token      String   @unique
+    expires    DateTime
+
+    @@unique([identifier, token])
+}
