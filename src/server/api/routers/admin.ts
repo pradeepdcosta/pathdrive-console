@@ -27,6 +27,51 @@ export const adminRouter = createTRPCRouter({
             // Use Prisma's $executeRawUnsafe to create tables manually
             console.log("Creating database schema...");
             
+            // Create enum types first (use IF NOT EXISTS equivalent)
+            try {
+              await ctx.db.$executeRawUnsafe(`
+                DO $$ BEGIN
+                  CREATE TYPE "UserRole" AS ENUM ('USER', 'ADMIN');
+                EXCEPTION
+                  WHEN duplicate_object THEN null;
+                END $$;
+              `);
+              
+              await ctx.db.$executeRawUnsafe(`
+                DO $$ BEGIN
+                  CREATE TYPE "EndpointType" AS ENUM ('POP', 'DC', 'CLS');
+                EXCEPTION
+                  WHEN duplicate_object THEN null;
+                END $$;
+              `);
+              
+              await ctx.db.$executeRawUnsafe(`
+                DO $$ BEGIN
+                  CREATE TYPE "Capacity" AS ENUM ('TEN_G', 'HUNDRED_G', 'FOUR_HUNDRED_G');
+                EXCEPTION
+                  WHEN duplicate_object THEN null;
+                END $$;
+              `);
+              
+              await ctx.db.$executeRawUnsafe(`
+                DO $$ BEGIN
+                  CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'PROCESSING', 'ACTIVE', 'CANCELLED');
+                EXCEPTION
+                  WHEN duplicate_object THEN null;
+                END $$;
+              `);
+              
+              await ctx.db.$executeRawUnsafe(`
+                DO $$ BEGIN
+                  CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED');
+                EXCEPTION
+                  WHEN duplicate_object THEN null;
+                END $$;
+              `);
+            } catch (enumError) {
+              console.log("Some enums may already exist, continuing...");
+            }
+            
             // Create User table with all required fields
             await ctx.db.$executeRawUnsafe(`
               CREATE TABLE IF NOT EXISTS "User" (
@@ -36,7 +81,7 @@ export const adminRouter = createTRPCRouter({
                 "emailVerified" TIMESTAMP(3),
                 "image" TEXT,
                 "password" TEXT,
-                "role" TEXT NOT NULL DEFAULT 'USER',
+                "role" "UserRole" NOT NULL DEFAULT 'USER',
                 "companyName" TEXT,
                 "companyDetails" TEXT,
                 "billingAddress" TEXT,
