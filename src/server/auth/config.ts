@@ -2,6 +2,7 @@ import { type DefaultSession, type NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { type UserRole } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 import { db } from "~/server/db";
 
@@ -46,20 +47,17 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email as string }
         });
 
-        if (!user) {
-          const newUser = await db.user.create({
-            data: {
-              email: credentials.email as string,
-              name: credentials.email as string,
-              role: "USER"
-            }
-          });
-          return {
-            id: newUser.id,
-            email: newUser.email,
-            name: newUser.name,
-            role: newUser.role
-          };
+        if (!user || !user.password) {
+          return null;
+        }
+
+        const isValidPassword = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
+
+        if (!isValidPassword) {
+          return null;
         }
 
         return {

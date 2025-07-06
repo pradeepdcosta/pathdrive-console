@@ -3,6 +3,7 @@ import { locationRouter } from "~/server/api/routers/location";
 import { routeRouter } from "~/server/api/routers/route";
 import { capacityRouter } from "~/server/api/routers/capacity";
 import { orderRouter } from "~/server/api/routers/order";
+import { authRouter } from "~/server/api/routers/auth";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
   route: routeRouter,
   capacity: capacityRouter,
   order: orderRouter,
+  auth: authRouter,
 });
 
 // export type definition of API

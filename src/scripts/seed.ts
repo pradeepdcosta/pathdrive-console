@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -249,10 +250,12 @@ async function main() {
   console.log(`✅ Created ${capacityCount} route capacities`);
 
   // Create an admin user
+  const adminPassword = await bcrypt.hash("admin123", 12);
   const adminUser = await prisma.user.create({
     data: {
       email: "admin@pathdrive.com",
       name: "Administrator",
+      password: adminPassword,
       role: "ADMIN",
       companyName: "PathDrive Inc.",
       companyDetails: "Network Infrastructure Provider",
@@ -263,10 +266,12 @@ async function main() {
   console.log(`✅ Created admin user: ${adminUser.email}`);
 
   // Create a sample regular user
+  const userPassword = await bcrypt.hash("user123", 12);
   const sampleUser = await prisma.user.create({
     data: {
       email: "user@example.com",
       name: "Sample User",
+      password: userPassword,
       role: "USER",
       companyName: "Example Corp",
       companyDetails: "Technology Company",
