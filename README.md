@@ -28,7 +28,7 @@ A comprehensive web application for managing and ordering dedicated ethernet ser
 
 - **Framework**: Next.js 15 with TypeScript
 - **Authentication**: NextAuth.js with credential and OAuth providers
-- **Database**: SQLite with Prisma ORM
+- **Database**: SQLite (dev) / PostgreSQL (production) with Prisma ORM
 - **API Layer**: tRPC for type-safe client-server communication
 - **Styling**: Tailwind CSS for responsive design
 - **State Management**: React Query (via tRPC)
@@ -81,14 +81,46 @@ A comprehensive web application for managing and ordering dedicated ethernet ser
 
 Visit [http://localhost:3000](http://localhost:3000) to see the application.
 
+## Deployment
+
+### Vercel Deployment
+
+1. **Create a Vercel Postgres database**:
+   - Go to your Vercel dashboard
+   - Create a new Postgres database
+   - Copy the DATABASE_URL from the database settings
+
+2. **Set up environment variables in Vercel**:
+   ```
+   DATABASE_URL=postgresql://username:password@hostname:port/database
+   NEXTAUTH_SECRET=your-generated-secret
+   NEXTAUTH_URL=https://your-app-name.vercel.app
+   ```
+
+3. **Deploy the application**:
+   - Push your code to GitHub
+   - Connect your repository to Vercel
+   - Vercel will automatically build and deploy
+
+4. **Initialize the database**:
+   - After deployment, visit: `https://your-app-name.vercel.app/admin/init-db`
+   - Click "Initialize Database" to create admin users and sample data
+
+### Environment Variables Required for Production
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `NEXTAUTH_SECRET`: Random secret for JWT signing
+- `NEXTAUTH_URL`: Your application's URL
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: (Optional) For map functionality
+
 ## Sample Credentials
 
 After seeding, you can log in with these sample accounts:
 
-- **Admin User**: admin@pathdrive.com
-- **Regular User**: user@example.com
+- **Admin User**: admin@pathdrive.com / admin123
+- **Regular User**: user@example.com / user123
 
-*Note: The demo uses a simplified authentication system. In production, implement proper password hashing and security measures.*
+The application now uses secure password hashing with bcryptjs and includes user registration and password reset functionality.
 
 ## Project Structure
 
