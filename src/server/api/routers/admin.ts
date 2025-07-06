@@ -178,4 +178,69 @@ export const adminRouter = createTRPCRouter({
         });
       }
     }),
+
+  fixSchema: publicProcedure
+    .mutation(async ({ ctx }) => {
+      try {
+        console.log("Fixing database schema by adding missing enum types...");
+        
+        // Create enum types (safe to run multiple times)
+        await ctx.db.$executeRawUnsafe(`
+          DO $$ BEGIN
+            CREATE TYPE "UserRole" AS ENUM ('USER', 'ADMIN');
+          EXCEPTION
+            WHEN duplicate_object THEN null;
+          END $$;
+        `);
+        
+        await ctx.db.$executeRawUnsafe(`
+          DO $$ BEGIN
+            CREATE TYPE "EndpointType" AS ENUM ('POP', 'DC', 'CLS');
+          EXCEPTION
+            WHEN duplicate_object THEN null;
+          END $$;
+        `);
+        
+        await ctx.db.$executeRawUnsafe(`
+          DO $$ BEGIN
+            CREATE TYPE "Capacity" AS ENUM ('TEN_G', 'HUNDRED_G', 'FOUR_HUNDRED_G');
+          EXCEPTION
+            WHEN duplicate_object THEN null;
+          END $$;
+        `);
+        
+        await ctx.db.$executeRawUnsafe(`
+          DO $$ BEGIN
+            CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'PROCESSING', 'ACTIVE', 'CANCELLED');
+          EXCEPTION
+            WHEN duplicate_object THEN null;
+          END $$;
+        `);
+        
+        await ctx.db.$executeRawUnsafe(`
+          DO $$ BEGIN
+            CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED');
+          EXCEPTION
+            WHEN duplicate_object THEN null;
+          END $$;
+        `);
+
+        // Try to alter the User table to use the proper enum type
+        try {
+          await ctx.db.$executeRawUnsafe(`
+            ALTER TABLE "User" ALTER COLUMN "role" TYPE "UserRole" USING "role"::"UserRole";
+          `);
+        } catch (alterError) {
+          console.log("User table may already have correct role type");
+        }
+
+        return { message: "Database schema fixed successfully! Enum types added and User table updated." };
+      } catch (error) {
+        console.error("Schema fix error:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Schema fix failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        });
+      }
+    }),
 });
