@@ -358,4 +358,26 @@ export const adminRouter = createTRPCRouter({
         });
       }
     }),
+
+  checkDatabase: publicProcedure
+    .query(async ({ ctx }) => {
+      const results: any = {};
+      
+      // Check each table
+      const tables = ['User', 'Location', 'Route', 'RouteCapacity', 'Order', 'OrderItem'];
+      
+      for (const table of tables) {
+        try {
+          const result = await ctx.db.$queryRaw`SELECT count(*) FROM ${table}`;
+          results[table] = { exists: true, count: result };
+        } catch (error: any) {
+          results[table] = { 
+            exists: false, 
+            error: error.message?.substring(0, 100) 
+          };
+        }
+      }
+      
+      return results;
+    }),
 });
