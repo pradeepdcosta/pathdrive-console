@@ -5,7 +5,6 @@ import { Geist } from "next/font/google";
 import { useEffect } from "react";
 
 import { api } from "~/utils/api";
-import { ThemeProvider } from "~/contexts/ThemeContext";
 
 import "~/styles/globals.css";
 
@@ -45,11 +44,9 @@ const MyApp: AppType<{ session: Session | null }> = ({
 
   return (
     <SessionProvider session={session}>
-      <ThemeProvider>
-        <div className={geist.className}>
-          <Component {...pageProps} />
-        </div>
-      </ThemeProvider>
+      <div className={geist.className}>
+        <Component {...pageProps} />
+      </div>
     </SessionProvider>
   );
 };
