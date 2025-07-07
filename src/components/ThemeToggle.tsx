@@ -2,13 +2,20 @@ import { useTheme } from "~/contexts/ThemeContext";
 
 export function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();
+  console.log("ThemeToggle rendered with:", { theme, resolvedTheme });
 
   const handleToggle = () => {
+    console.log("Toggle clicked, current theme:", theme, "resolved:", resolvedTheme);
+    
     if (theme === "system") {
-      setTheme(resolvedTheme === "dark" ? "light" : "dark");
+      const newTheme = resolvedTheme === "dark" ? "light" : "dark";
+      console.log("Switching from system to:", newTheme);
+      setTheme(newTheme);
     } else if (theme === "light") {
+      console.log("Switching from light to dark");
       setTheme("dark");
     } else {
+      console.log("Switching from dark to system");
       setTheme("system");
     }
   };

@@ -23,6 +23,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    
     const root = window.document.documentElement;
     
     const updateTheme = () => {
@@ -34,11 +36,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         effectiveTheme = theme;
       }
       
+      console.log("Updating theme:", { theme, effectiveTheme });
       setResolvedTheme(effectiveTheme);
       
       // Apply theme to DOM
       root.classList.remove("light", "dark");
       root.classList.add(effectiveTheme);
+      
+      // Also set data-theme attribute for debugging
+      root.setAttribute("data-theme", effectiveTheme);
       
       // Save to localStorage
       localStorage.setItem("theme", theme);
