@@ -93,7 +93,7 @@ export const adminRouter = createTRPCRouter({
       
       for (const table of tables) {
         try {
-          const result = await ctx.db.$queryRawUnsafe(`SELECT count(*) FROM ${table.quoted}`);
+          const result = await ctx.db.$queryRawUnsafe(`SELECT count(*)::text FROM ${table.quoted}`);
           results[table.name] = { exists: true, count: result };
         } catch (error: any) {
           results[table.name] = { 
