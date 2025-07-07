@@ -74,6 +74,7 @@ export const adminRouter = createTRPCRouter({
         }
       } catch (error: any) {
         return { message: "Database connection error occurred. Please check DATABASE_URL configuration." };
+      }
     }),
 
   checkDatabase: publicProcedure
