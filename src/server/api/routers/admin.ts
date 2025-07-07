@@ -12,13 +12,20 @@ export const adminRouter = createTRPCRouter({
   initializeDatabase: publicProcedure
     .mutation(async ({ ctx }) => {
       try {
-        // Try to check if admin user already exists
-        const existingAdmin = await ctx.db.user.findUnique({
-          where: { email: "admin@pathdrive.com" },
-        });
+        // Try to check if tables exist by testing a location query
+        try {
+          await ctx.db.location.count();
+          // If this succeeds, tables exist
+          const existingAdmin = await ctx.db.user.findUnique({
+            where: { email: "admin@pathdrive.com" },
+          });
 
-        if (existingAdmin) {
-          return { message: "Database already initialized" };
+          if (existingAdmin) {
+            return { message: "Database already initialized with all tables" };
+          }
+        } catch (tableError) {
+          // Tables don't exist, continue with creation
+          console.log("Tables don't exist, proceeding with creation...");
         }
       } catch (error: any) {
         // If we get a "table does not exist" error, we need to create the schema
@@ -129,6 +136,114 @@ export const adminRouter = createTRPCRouter({
                 "expires" TIMESTAMP(3) NOT NULL
               );
             `);
+
+            // Create Location table
+            await ctx.db.$executeRawUnsafe(`
+              CREATE TABLE IF NOT EXISTS "Location" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "name" TEXT NOT NULL,
+                "type" "EndpointType" NOT NULL,
+                "region" TEXT NOT NULL,
+                "city" TEXT NOT NULL,
+                "latitude" DOUBLE PRECISION NOT NULL,
+                "longitude" DOUBLE PRECISION NOT NULL,
+                "isActive" BOOLEAN NOT NULL DEFAULT true,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+            `);
+
+            // Create Route table
+            await ctx.db.$executeRawUnsafe(`
+              CREATE TABLE IF NOT EXISTS "Route" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "name" TEXT NOT NULL,
+                "aEndId" TEXT NOT NULL,
+                "bEndId" TEXT NOT NULL,
+                "distance" DOUBLE PRECISION,
+                "isActive" BOOLEAN NOT NULL DEFAULT true,
+                "isVisible" BOOLEAN NOT NULL DEFAULT true,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT "Route_aEndId_fkey" FOREIGN KEY ("aEndId") REFERENCES "Location" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+                CONSTRAINT "Route_bEndId_fkey" FOREIGN KEY ("bEndId") REFERENCES "Location" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+              );
+            `);
+
+            // Create RouteCapacity table
+            await ctx.db.$executeRawUnsafe(`
+              CREATE TABLE IF NOT EXISTS "RouteCapacity" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "routeId" TEXT NOT NULL,
+                "capacity" "Capacity" NOT NULL,
+                "pricePerUnit" DOUBLE PRECISION NOT NULL,
+                "availableUnits" INTEGER NOT NULL,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT "RouteCapacity_routeId_fkey" FOREIGN KEY ("routeId") REFERENCES "Route" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+              );
+            `);
+
+            // Create Order table
+            await ctx.db.$executeRawUnsafe(`
+              CREATE TABLE IF NOT EXISTS "Order" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "userId" TEXT NOT NULL,
+                "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+                "totalAmount" DOUBLE PRECISION NOT NULL,
+                "currency" TEXT NOT NULL DEFAULT 'USD',
+                "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
+                "paymentIntentId" TEXT,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT "Order_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+              );
+            `);
+
+            // Create OrderItem table
+            await ctx.db.$executeRawUnsafe(`
+              CREATE TABLE IF NOT EXISTS "OrderItem" (
+                "id" TEXT NOT NULL PRIMARY KEY,
+                "orderId" TEXT NOT NULL,
+                "routeId" TEXT NOT NULL,
+                "routeCapacityId" TEXT NOT NULL,
+                "quantity" INTEGER NOT NULL,
+                "unitPrice" DOUBLE PRECISION NOT NULL,
+                "totalPrice" DOUBLE PRECISION NOT NULL,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+                CONSTRAINT "OrderItem_routeId_fkey" FOREIGN KEY ("routeId") REFERENCES "Route" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+                CONSTRAINT "OrderItem_routeCapacityId_fkey" FOREIGN KEY ("routeCapacityId") REFERENCES "RouteCapacity" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+              );
+            `);
+
+            // Create Post table
+            await ctx.db.$executeRawUnsafe(`
+              CREATE TABLE IF NOT EXISTS "Post" (
+                "id" SERIAL PRIMARY KEY,
+                "name" TEXT NOT NULL,
+                "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                "createdById" TEXT NOT NULL,
+                CONSTRAINT "Post_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+              );
+            `);
+
+            // Create indexes
+            await ctx.db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Location_region_city_idx" ON "Location"("region", "city");`);
+            await ctx.db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Location_type_idx" ON "Location"("type");`);
+            await ctx.db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Route_aEndId_bEndId_idx" ON "Route"("aEndId", "bEndId");`);
+            await ctx.db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Route_isActive_isVisible_idx" ON "Route"("isActive", "isVisible");`);
+            await ctx.db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "RouteCapacity_routeId_capacity_idx" ON "RouteCapacity"("routeId", "capacity");`);
+            await ctx.db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Order_userId_idx" ON "Order"("userId");`);
+            await ctx.db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Order_status_idx" ON "Order"("status");`);
+            await ctx.db.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Post_name_idx" ON "Post"("name");`);
+            
+            // Create unique constraints
+            await ctx.db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");`);
+            await ctx.db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "Route_aEndId_bEndId_key" ON "Route"("aEndId", "bEndId");`);
+            await ctx.db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "RouteCapacity_routeId_capacity_key" ON "RouteCapacity"("routeId", "capacity");`);
+            await ctx.db.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");`);
 
             console.log("Database schema created successfully");
           } catch (createError) {
