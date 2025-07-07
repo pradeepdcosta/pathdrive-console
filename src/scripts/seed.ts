@@ -249,10 +249,12 @@ async function main() {
 
   console.log(`✅ Created ${capacityCount} route capacities`);
 
-  // Create an admin user
+  // Create an admin user (or skip if exists)
   const adminPassword = await bcrypt.hash("admin123", 12);
-  const adminUser = await prisma.user.create({
-    data: {
+  const adminUser = await prisma.user.upsert({
+    where: { email: "admin@pathdrive.com" },
+    update: {},
+    create: {
       email: "admin@pathdrive.com",
       name: "Administrator",
       password: adminPassword,
@@ -263,12 +265,14 @@ async function main() {
     },
   });
 
-  console.log(`✅ Created admin user: ${adminUser.email}`);
+  console.log(`✅ Admin user ready: ${adminUser.email}`);
 
-  // Create a sample regular user
+  // Create a sample regular user (or skip if exists)
   const userPassword = await bcrypt.hash("user123", 12);
-  const sampleUser = await prisma.user.create({
-    data: {
+  const sampleUser = await prisma.user.upsert({
+    where: { email: "user@example.com" },
+    update: {},
+    create: {
       email: "user@example.com",
       name: "Sample User",
       password: userPassword,
@@ -279,7 +283,7 @@ async function main() {
     },
   });
 
-  console.log(`✅ Created sample user: ${sampleUser.email}`);
+  console.log(`✅ Sample user ready: ${sampleUser.email}`);
 
   console.log("🌱 Seeding completed successfully!");
 }
