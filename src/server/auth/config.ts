@@ -68,10 +68,10 @@ export const authOptions: NextAuthOptions = {
         };
       }
     }),
-    DiscordProvider({
-      clientId: process.env.DISCORD_CLIENT_ID!,
-      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-    }),
+    // DiscordProvider({
+    //   clientId: process.env.AUTH_DISCORD_ID!,
+    //   clientSecret: process.env.AUTH_DISCORD_SECRET!,
+    // }),
   ],
   callbacks: {
     jwt: ({ token, user }) => {
