@@ -424,4 +424,26 @@ export const adminRouter = createTRPCRouter({
       
       return results;
     }),
+
+  listUsers: publicProcedure
+    .query(async ({ ctx }) => {
+      try {
+        const users = await ctx.db.user.findMany({
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            companyName: true,
+            createdAt: true,
+          },
+        });
+        return { users, count: users.length };
+      } catch (error: any) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to fetch users: ${error.message}`,
+        });
+      }
+    }),
 });
