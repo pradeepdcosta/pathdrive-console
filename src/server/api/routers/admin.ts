@@ -310,68 +310,89 @@ export const adminRouter = createTRPCRouter({
   initializeDatabase: publicProcedure
     .mutation(async ({ ctx }) => {
       try {
-        // Try to check if tables exist by testing a location query
+        // Check if admin user already exists
         try {
-          await ctx.db.location.count();
-          // If this succeeds, tables exist
           const existingAdmin = await ctx.db.user.findUnique({
             where: { email: "admin@pathdrive.com" },
           });
 
           if (existingAdmin) {
-            return { message: "Database already initialized with all tables" };
+            return { message: "Database already initialized with admin and sample users!" };
           }
-        } catch (tableError) {
-          // Tables don't exist, we need to create them
-          console.log("Tables don't exist, need to create schema first");
-          
-          // Instead of complex raw SQL, let's try a simpler approach
-          // Check if we can create sample data, which will fail if tables don't exist
-          try {
-            // Try to create admin user directly - this will fail if User table doesn't exist
-            const adminPassword = await bcrypt.hash("admin123", 12);
-            
-            await ctx.db.user.upsert({
-              where: { email: "admin@pathdrive.com" },
-              update: {},
-              create: {
-                email: "admin@pathdrive.com",
-                name: "Administrator",
-                password: adminPassword,
-                role: "ADMIN",
-                companyName: "PathDrive Inc.",
-                companyDetails: "Network Infrastructure Provider",
-                billingAddress: "123 Tech Street, San Francisco, CA 94105",
-              },
-            });
-
-            await ctx.db.user.upsert({
-              where: { email: "user@example.com" },
-              update: {},
-              create: {
-                email: "user@example.com",
-                name: "Sample User",
-                password: await bcrypt.hash("user123", 12),
-                role: "USER",
-                companyName: "Example Corp",
-                companyDetails: "Technology Company",
-                billingAddress: "456 Business Ave, New York, NY 10001",
-              },
-            });
-
-            return { message: "Database initialized successfully with users!" };
-          } catch (createError: any) {
-            // If user creation fails, tables probably don't exist
-            console.error("Failed to create users, tables may not exist:", createError);
-            
-            return { 
-              message: "Database tables do not exist. Please run 'npx prisma db push' in your database environment or contact admin to set up the database schema.", 
-              error: createError.message 
-            };
-          }
+        } catch (userCheckError) {
+          // This might fail if tables don't exist, but we'll try to create users anyway
+          console.log("User check failed, will attempt to create users:", userCheckError);
         }
+
+        try {
+          // Try to create admin user directly
+          const adminPassword = await bcrypt.hash("admin123", 12);
+          
+          const adminUser = await ctx.db.user.upsert({
+            where: { email: "admin@pathdrive.com" },
+            update: {
+              // Update existing admin if found
+              name: "Administrator",
+              role: "ADMIN",
+              companyName: "PathDrive Inc.",
+              companyDetails: "Network Infrastructure Provider",
+              billingAddress: "123 Tech Street, San Francisco, CA 94105",
+            },
+            create: {
+              id: generateId(),
+              email: "admin@pathdrive.com",
+              name: "Administrator",
+              password: adminPassword,
+              role: "ADMIN",
+              companyName: "PathDrive Inc.",
+              companyDetails: "Network Infrastructure Provider",
+              billingAddress: "123 Tech Street, San Francisco, CA 94105",
+            },
+          });
+
+          const sampleUser = await ctx.db.user.upsert({
+            where: { email: "user@example.com" },
+            update: {
+              // Update existing user if found
+              name: "Sample User",
+              role: "USER",
+              companyName: "Example Corp",
+              companyDetails: "Technology Company",
+              billingAddress: "456 Business Ave, New York, NY 10001",
+            },
+            create: {
+              id: generateId(),
+              email: "user@example.com",
+              name: "Sample User",
+              password: await bcrypt.hash("user123", 12),
+              role: "USER",
+              companyName: "Example Corp",
+              companyDetails: "Technology Company",
+              billingAddress: "456 Business Ave, New York, NY 10001",
+            },
+          });
+
+          console.log("Created users:", { adminUser: adminUser.email, sampleUser: sampleUser.email });
+
+          return { 
+            message: "Database initialized successfully! Admin and sample users have been created. You can now sign in with admin@pathdrive.com (admin123) or user@example.com (user123)." 
+          };
+
+        } catch (createError: any) {
+          console.error("Failed to create users:", createError);
+          
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to initialize database: ${createError.message}. Tables may not exist - please run Step 1 first.`,
+          });
+        }
+
       } catch (error: any) {
-        return { message: "Database connection error occurred. Please check DATABASE_URL configuration." };
+        console.error("Database initialization failed:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Database initialization error: ${error.message}`,
+        });
       }
     }),
 
