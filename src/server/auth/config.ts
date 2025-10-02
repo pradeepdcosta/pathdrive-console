@@ -46,9 +46,29 @@ export const authOptions: NextAuthOptions = {
 
         console.log("Attempting login for email:", credentials.email);
 
-        const user = await db.user.findUnique({
-          where: { email: credentials.email as string }
-        });
+        // Handle prepared statement conflicts by using a fresh query
+        let user;
+        try {
+          user = await db.user.findUnique({
+            where: { email: credentials.email as string }
+          });
+        } catch (dbError: any) {
+          console.log("Database error during user lookup:", dbError.message);
+          // Try with raw query to avoid prepared statement conflicts
+          try {
+            const result = await db.$queryRaw`
+              SELECT id, email, name, password, role 
+              FROM "User" 
+              WHERE email = ${credentials.email as string}
+              LIMIT 1
+            `;
+            user = Array.isArray(result) && result.length > 0 ? result[0] : null;
+            console.log("Raw query successful, user found:", !!user);
+          } catch (rawError: any) {
+            console.log("Raw query also failed:", rawError.message);
+            return null;
+          }
+        }
 
         console.log("User found:", user ? { id: user.id, email: user.email, hasPassword: !!user.password } : "Not found");
 
