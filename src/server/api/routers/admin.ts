@@ -310,14 +310,47 @@ export const adminRouter = createTRPCRouter({
   initializeDatabase: publicProcedure
     .mutation(async ({ ctx }) => {
       try {
-        // Check if admin user already exists
+        // Check if admin user already exists and update password if needed
         try {
           const existingAdmin = await ctx.db.user.findUnique({
             where: { email: "admin@pathdrive.com" },
           });
 
           if (existingAdmin) {
-            return { message: "Database already initialized with admin and sample users!" };
+            // Update the existing admin user with the correct password
+            const adminPassword = await bcrypt.hash("admin123", 12);
+            await ctx.db.user.update({
+              where: { email: "admin@pathdrive.com" },
+              data: {
+                password: adminPassword,
+                role: "ADMIN",
+                name: "Administrator",
+                companyName: "PathDrive Inc.",
+              },
+            });
+            
+            // Also ensure sample user exists
+            const samplePassword = await bcrypt.hash("user123", 12);
+            await ctx.db.user.upsert({
+              where: { email: "user@example.com" },
+              update: {
+                password: samplePassword,
+                role: "USER",
+                name: "Sample User",
+              },
+              create: {
+                id: generateId(),
+                email: "user@example.com",
+                name: "Sample User",
+                password: samplePassword,
+                role: "USER",
+                companyName: "Example Corp",
+                companyDetails: "Technology Company",
+                billingAddress: "456 Business Ave, New York, NY 10001",
+              },
+            });
+
+            return { message: "Database users updated! You can now sign in with admin@pathdrive.com (admin123) or user@example.com (user123)." };
           }
         } catch (userCheckError) {
           // This might fail if tables don't exist, but we'll try to create users anyway
