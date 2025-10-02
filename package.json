@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && next build",
     "postbuild": "echo 'Build completed. Database setup should be done via /admin/init-db endpoint.'",
     "check": "next lint && tsc --noEmit",
     "db:generate": "prisma migrate dev",
     "db:migrate": "prisma migrate deploy",
+    "deploy:db": "node scripts/deploy-db.js",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "npx tsx src/scripts/seed.ts",
