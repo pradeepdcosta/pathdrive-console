@@ -2,6 +2,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
+import { execSync } from "child_process";
 
 // Simple function to generate CUID-like IDs
 function generateId(): string {
@@ -9,6 +10,25 @@ function generateId(): string {
 }
 
 export const adminRouter = createTRPCRouter({
+  setupSchema: publicProcedure
+    .mutation(async ({ ctx }) => {
+      try {
+        // Run prisma db push to create tables
+        console.log("Running prisma db push to create schema...");
+        execSync("npx prisma db push --accept-data-loss", { 
+          stdio: 'inherit',
+          cwd: process.cwd()
+        });
+        return { message: "Database schema created successfully!" };
+      } catch (error: any) {
+        console.error("Schema setup failed:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to create schema: ${error.message}`,
+        });
+      }
+    }),
+
   initializeDatabase: publicProcedure
     .mutation(async ({ ctx }) => {
       try {

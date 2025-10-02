@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "build": "prisma generate && next build",
     "postbuild": "echo 'Build completed. Database setup should be done via /admin/init-db endpoint.'",
     "check": "next lint && tsc --noEmit",
     "db:generate": "prisma migrate dev",

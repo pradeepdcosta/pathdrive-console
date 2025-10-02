@@ -4,8 +4,22 @@ import { api } from "~/utils/api";
 
 export default function InitializeDatabase() {
   const [loading, setLoading] = useState(false);
+  const [schemaLoading, setSchemaLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  const setupSchemaMutation = api.admin.setupSchema.useMutation({
+    onSuccess: (data) => {
+      setMessage(data.message);
+      setError("");
+      setSchemaLoading(false);
+    },
+    onError: (error) => {
+      setError(error.message);
+      setMessage("");
+      setSchemaLoading(false);
+    },
+  });
 
   const initMutation = api.admin.initializeDatabase.useMutation({
     onSuccess: (data) => {
@@ -19,6 +33,13 @@ export default function InitializeDatabase() {
       setLoading(false);
     },
   });
+
+  const handleSetupSchema = () => {
+    setSchemaLoading(true);
+    setMessage("");
+    setError("");
+    setupSchemaMutation.mutate();
+  };
 
   const handleInitialize = () => {
     setLoading(true);
@@ -51,10 +72,14 @@ export default function InitializeDatabase() {
                 </ul>
               </div>
 
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h3 className="font-medium text-red-900 mb-2">🔧 Database tables do not exist. Please run 'npx prisma db push' in your database environment or contact admin to set up the database schema.</h3>
+              </div>
+
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <h3 className="font-medium text-yellow-900 mb-2">⚠️ Important:</h3>
                 <p className="text-yellow-800 text-sm">
-                  This should only be run once when first deploying to production. 
+                  Step 1: Create database schema first, then initialize with sample data. 
                   Running this multiple times is safe - it will skip if data already exists.
                 </p>
               </div>
@@ -71,13 +96,23 @@ export default function InitializeDatabase() {
                 </div>
               )}
 
-              <button
-                onClick={handleInitialize}
-                disabled={loading}
-                className="w-full bg-red-800 text-white py-3 px-4 rounded-lg font-medium hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "Initializing Database..." : "Initialize Database"}
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={handleSetupSchema}
+                  disabled={schemaLoading}
+                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {schemaLoading ? "Creating Database Schema..." : "Step 1: Setup Database Schema"}
+                </button>
+                
+                <button
+                  onClick={handleInitialize}
+                  disabled={loading}
+                  className="w-full bg-red-800 text-white py-3 px-4 rounded-lg font-medium hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? "Initializing Database..." : "Step 2: Initialize Database with Sample Data"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
