@@ -479,4 +479,32 @@ export const adminRouter = createTRPCRouter({
         });
       }
     }),
+
+  testPassword: publicProcedure
+    .input(z.object({
+      email: z.string(),
+      password: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const user = await ctx.db.user.findUnique({
+          where: { email: input.email },
+        });
+
+        if (!user || !user.password) {
+          return { success: false, message: "User not found or no password" };
+        }
+
+        const isValid = await bcrypt.compare(input.password, user.password);
+        
+        return { 
+          success: isValid, 
+          message: isValid ? "Password matches!" : "Password does not match",
+          userExists: true,
+          hasPassword: !!user.password
+        };
+      } catch (error: any) {
+        return { success: false, message: `Error: ${error.message}` };
+      }
+    }),
 });
