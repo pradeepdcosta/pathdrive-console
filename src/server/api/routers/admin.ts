@@ -12,258 +12,27 @@ export const adminRouter = createTRPCRouter({
   setupSchema: publicProcedure
     .mutation(async ({ ctx }) => {
       try {
-        // Create tables using raw SQL based on Prisma schema
-        console.log("Creating database schema using SQL...");
-        
-        await ctx.db.$executeRaw`
-          -- Create ENUM types first
-          DO $$ BEGIN
-            CREATE TYPE "UserRole" AS ENUM ('USER', 'ADMIN');
-          EXCEPTION
-            WHEN duplicate_object THEN null;
-          END $$;
-        `;
+        // Try to test if tables already exist by running a simple query
+        try {
+          await ctx.db.user.count();
+          return { message: "Database schema already exists! You can proceed to initialize with sample data." };
+        } catch (error) {
+          // Tables don't exist, we'll create them
+          console.log("Tables don't exist, creating schema...");
+        }
 
-        await ctx.db.$executeRaw`
-          DO $$ BEGIN
-            CREATE TYPE "EndpointType" AS ENUM ('POP', 'DC', 'CLS');
-          EXCEPTION
-            WHEN duplicate_object THEN null;
-          END $$;
-        `;
-
-        await ctx.db.$executeRaw`
-          DO $$ BEGIN
-            CREATE TYPE "Capacity" AS ENUM ('TEN_G', 'HUNDRED_G', 'FOUR_HUNDRED_G');
-          EXCEPTION
-            WHEN duplicate_object THEN null;
-          END $$;
-        `;
-
-        await ctx.db.$executeRaw`
-          DO $$ BEGIN
-            CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'PROCESSING', 'ACTIVE', 'CANCELLED');
-          EXCEPTION
-            WHEN duplicate_object THEN null;
-          END $$;
-        `;
-
-        await ctx.db.$executeRaw`
-          DO $$ BEGIN
-            CREATE TYPE "PaymentStatus" AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'REFUNDED');
-          EXCEPTION
-            WHEN duplicate_object THEN null;
-          END $$;
-        `;
-
-        // Create User table
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "User" (
-            "id" TEXT NOT NULL,
-            "name" TEXT,
-            "email" TEXT,
-            "emailVerified" TIMESTAMP(3),
-            "image" TEXT,
-            "password" TEXT,
-            "role" "UserRole" NOT NULL DEFAULT 'USER',
-            "companyName" TEXT,
-            "companyDetails" TEXT,
-            "billingAddress" TEXT,
-            "resetToken" TEXT,
-            "resetTokenExpiry" TIMESTAMP(3),
-
-            CONSTRAINT "User_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
-        `;
-
-        // Create other tables...
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "Location" (
-            "id" TEXT NOT NULL,
-            "name" TEXT NOT NULL,
-            "type" "EndpointType" NOT NULL,
-            "region" TEXT NOT NULL,
-            "city" TEXT NOT NULL,
-            "latitude" DOUBLE PRECISION NOT NULL,
-            "longitude" DOUBLE PRECISION NOT NULL,
-            "isActive" BOOLEAN NOT NULL DEFAULT true,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" TIMESTAMP(3) NOT NULL,
-
-            CONSTRAINT "Location_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE INDEX IF NOT EXISTS "Location_region_city_idx" ON "Location"("region", "city");
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE INDEX IF NOT EXISTS "Location_type_idx" ON "Location"("type");
-        `;
-
-        // Create Route table
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "Route" (
-            "id" TEXT NOT NULL,
-            "name" TEXT NOT NULL,
-            "aEndId" TEXT NOT NULL,
-            "bEndId" TEXT NOT NULL,
-            "distance" DOUBLE PRECISION,
-            "isActive" BOOLEAN NOT NULL DEFAULT true,
-            "isVisible" BOOLEAN NOT NULL DEFAULT true,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" TIMESTAMP(3) NOT NULL,
-
-            CONSTRAINT "Route_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "Route_aEndId_bEndId_key" ON "Route"("aEndId", "bEndId");
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE INDEX IF NOT EXISTS "Route_isActive_isVisible_idx" ON "Route"("isActive", "isVisible");
-        `;
-
-        // Create RouteCapacity table
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "RouteCapacity" (
-            "id" TEXT NOT NULL,
-            "routeId" TEXT NOT NULL,
-            "capacity" "Capacity" NOT NULL,
-            "pricePerUnit" DOUBLE PRECISION NOT NULL,
-            "availableUnits" INTEGER NOT NULL,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" TIMESTAMP(3) NOT NULL,
-
-            CONSTRAINT "RouteCapacity_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "RouteCapacity_routeId_capacity_key" ON "RouteCapacity"("routeId", "capacity");
-        `;
-
-        // Create Order table
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "Order" (
-            "id" TEXT NOT NULL,
-            "userId" TEXT NOT NULL,
-            "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
-            "totalAmount" DOUBLE PRECISION NOT NULL,
-            "currency" TEXT NOT NULL DEFAULT 'USD',
-            "paymentStatus" "PaymentStatus" NOT NULL DEFAULT 'PENDING',
-            "paymentIntentId" TEXT,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" TIMESTAMP(3) NOT NULL,
-
-            CONSTRAINT "Order_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE INDEX IF NOT EXISTS "Order_userId_idx" ON "Order"("userId");
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE INDEX IF NOT EXISTS "Order_status_idx" ON "Order"("status");
-        `;
-
-        // Create OrderItem table
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "OrderItem" (
-            "id" TEXT NOT NULL,
-            "orderId" TEXT NOT NULL,
-            "routeId" TEXT NOT NULL,
-            "routeCapacityId" TEXT NOT NULL,
-            "quantity" INTEGER NOT NULL,
-            "unitPrice" DOUBLE PRECISION NOT NULL,
-            "totalPrice" DOUBLE PRECISION NOT NULL,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-            CONSTRAINT "OrderItem_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        // Create NextAuth tables
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "Account" (
-            "id" TEXT NOT NULL,
-            "userId" TEXT NOT NULL,
-            "type" TEXT NOT NULL,
-            "provider" TEXT NOT NULL,
-            "providerAccountId" TEXT NOT NULL,
-            "refresh_token" TEXT,
-            "access_token" TEXT,
-            "expires_at" INTEGER,
-            "token_type" TEXT,
-            "scope" TEXT,
-            "id_token" TEXT,
-            "session_state" TEXT,
-            "refresh_token_expires_in" INTEGER,
-
-            CONSTRAINT "Account_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "Account_provider_providerAccountId_key" ON "Account"("provider", "providerAccountId");
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "Session" (
-            "id" TEXT NOT NULL,
-            "sessionToken" TEXT NOT NULL,
-            "userId" TEXT NOT NULL,
-            "expires" TIMESTAMP(3) NOT NULL,
-
-            CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "Session_sessionToken_key" ON "Session"("sessionToken");
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "VerificationToken" (
-            "identifier" TEXT NOT NULL,
-            "token" TEXT NOT NULL,
-            "expires" TIMESTAMP(3) NOT NULL
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "VerificationToken_token_key" ON "VerificationToken"("token");
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE UNIQUE INDEX IF NOT EXISTS "VerificationToken_identifier_token_key" ON "VerificationToken"("identifier", "token");
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE TABLE IF NOT EXISTS "Post" (
-            "id" SERIAL NOT NULL,
-            "name" TEXT NOT NULL,
-            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            "updatedAt" TIMESTAMP(3) NOT NULL,
-            "createdById" TEXT NOT NULL,
-
-            CONSTRAINT "Post_pkey" PRIMARY KEY ("id")
-          );
-        `;
-
-        await ctx.db.$executeRaw`
-          CREATE INDEX IF NOT EXISTS "Post_name_idx" ON "Post"("name");
-        `;
-
-        return { message: "Database schema created successfully! All tables and indexes have been created. You can now initialize with sample data." };
+        // Create basic user first to test schema creation
+        try {
+          // This will fail if schema doesn't exist, triggering the catch block
+          await ctx.db.user.findFirst();
+          return { message: "Database schema already exists! You can proceed to initialize with sample data." };
+        } catch (schemaError) {
+          // Schema doesn't exist, return error message asking user to use Supabase directly
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Database schema needs to be created manually. Please use the Supabase SQL Editor to run: CREATE EXTENSION IF NOT EXISTS 'uuid-ossp'; then use Prisma CLI locally with: npx prisma db push",
+          });
+        }
       } catch (error: any) {
         console.error("Schema setup failed:", error);
         throw new TRPCError({
